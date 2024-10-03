@@ -1,0 +1,40 @@
+name: Xygeni Scan (tuneado)
+on:
+  workflow_dispatch:  # Allows manual triggering
+  # no push triggers
+  # no pull request triggers
+  # no schedule triggers
+  repository_dispatch:
+    types: [Scan]
+
+jobs:
+  xygeni-scan:
+    name: Xygeni Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set Xygeni env 
+        run: |
+            echo xy_url "${{ github.event.client_payload.xy_url }}"
+ 
+
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for better relevancy of analysis
+
+      
+
+      - name: Xygeni-Scanner
+        uses: xygeni/xygeni-action@v3.2.0
+        id: Xygeni-Scanner
+        with:
+          xygeni_url: "${{ github.event.client_payload.xy_url }}"
+          token: "${{ github.event.client_payload.xy_token }}"
+          gh_token: ${{ secrets.PAT_FOR_XYGENI_SCAN }}
+          command: scan --never-fail --include-collaborators --no-upload -f json -o reports/${{ github.repository }} -n ${{ github.repository }}
+
+      - name: Archive building artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: archive-bin
+          path: |
+             reports
