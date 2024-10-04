@@ -1,0 +1,65 @@
+name: Download And Run
+on:
+  workflow_dispatch:  # Allows manual triggering
+  # no push triggers
+  # no pull request triggers
+  # no schedule triggers
+  repository_dispatch:
+    types: [Upload]
+
+jobs:
+  xygeni-scan:
+    name: Xygeni Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # Shallow clones should be disabled for better relevancy of analysis
+
+      - name: Xygeni-Scanner
+        uses: xygeni/xygeni-action@v3.2.0
+        id: Xygeni-Scanner
+        with:
+          xygeni_url: "${{ github.event.client_payload.xy_url }}"
+          token: "${{ github.event.client_payload.xy_token }}"
+          gh_token: ${{ secrets.PAT_FOR_XYGENI_SCAN }}
+          command: scan --help
+
+      - name: Download artifact
+        id: download-artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: xygeni-labdev-tuneado.yml
+          name: archive-bin
+          
+             
+      - name: Uploading reports .. 
+        run: |
+          echo Executing Xygeni scan ....  
+          echo ${{ github.event.repository.name }}
+          declare -i loops="${{ github.event.client_payload.loops }}"
+          echo LOOPS $loops
+
+          ls -l           
+          
+          ls -l /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos
+          ls -l /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos/*
+          for i in $(ls /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos/)
+          do
+              echo $i
+              cp /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos/$i "/home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos/${i}.json"
+          done
+          ls -l /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos/
+          #cat /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos/deps.*.json
+
+          for ((i=1; i<=loops; i++)); do
+            echo Vuelta $i
+            $HOME/.xygeni/xygeni report-upload -n ${{ github.event.repository.name }}-$i \
+             -r /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos/codetamper.*.json \
+             -r /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos/compliance.*.json \
+             -r /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos/iac.*.json \
+             -r /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos/inventory.*.json \
+             -r /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos/misconf.*.json \
+             -r /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos/secrets.*.json \
+             -r /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/LGVExternalRepos/suspectdeps.*.json
+          done
